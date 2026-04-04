@@ -1,16 +1,17 @@
 import React, { useState, useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
 const Register = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(null);
+  const [agreed, setAgreed] = useState(false);
+  const [error, setError] = useState('');
   const { register } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const handleRegister = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       await register(name, email, password);
@@ -21,49 +22,125 @@ const Register = () => {
   };
 
   return (
-    <div className="flex flex-col justify-center py-12 sm:px-6 lg:px-8 mt-10">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Create a CollabX account</h2>
+    <div className="min-h-screen flex bg-white">
+      {/* Left side - Branding Pane */}
+      <div className="hidden lg:flex lg:w-[45%] bg-primary-600 flex-col justify-center items-center text-white p-12 relative overflow-hidden shadow-2xl z-10 clip-path-slant">
+        {/* Decorative background overlay */}
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_bottom_right,_white_10%,_transparent_100%)]"></div>
+        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
+        
+        <div className="z-10 text-center flex flex-col items-center">
+          <h1 className="text-3xl font-light mb-8 antialiased">Welcome to</h1>
+          <div className="bg-white p-6 rounded-3xl shadow-2xl mb-8 transform hover:scale-105 transition-transform duration-300">
+            <img src="/logo.png" alt="CollabX Logo" className="h-32 w-32 object-contain drop-shadow-md" />
+          </div>
+          <h2 className="text-5xl font-extrabold mb-6 tracking-tight text-white drop-shadow-sm">CollabX</h2>
+          <p className="max-w-md text-primary-100 text-lg leading-relaxed opacity-90">
+            Create an account to start collaborating with your team in real time. We make productive work simple and beautiful.
+          </p>
+        </div>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border-t-4 border-primary-500">
-          <form className="space-y-6" onSubmit={handleRegister}>
-            {error && <div className="text-red-500 text-sm text-center bg-red-50 py-2 rounded">{error}</div>}
+      {/* Right side - Register Form */}
+      <div className="w-full lg:w-[55%] flex flex-col justify-center py-12 px-6 sm:px-12 lg:px-20 xl:px-32 bg-gray-50/50">
+        <div className="mx-auto w-full max-w-sm lg:max-w-md">
+          {/* Mobile Logo Fallback */}
+          <div className="lg:hidden flex justify-center mb-8">
+            <img src="/logo.png" alt="CollabX Logo" className="h-20 object-contain drop-shadow-md" />
+          </div>
+
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            Create your account
+          </h2>
+          <p className="text-gray-500 text-sm mb-8">
+            Enter your details below to create your account and get started.
+          </p>
+          
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {error && <div className="text-red-600 text-sm bg-red-50 border border-red-200 p-3 rounded-md shadow-sm flex items-center"><span className="mr-2">⚠️</span>{error}</div>}
             
             <div>
-              <label className="block text-sm font-medium text-gray-700">Full Name</label>
-              <div className="mt-1">
-                <input type="text" required value={name} onChange={(e)=>setName(e.target.value)} 
-                       className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" />
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
+              <div className="relative">
+                <input
+                  id="name"
+                  name="name"
+                  autoComplete="name"
+                  type="text"
+                  required
+                  className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow sm:text-sm bg-white"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your name"
+                />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Email address</label>
-              <div className="mt-1">
-                <input type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} 
-                       className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" />
+              <label className="block text-sm font-semibold text-gray-700 mb-1">E-mail Address</label>
+              <div className="relative">
+                <input
+                  id="email"
+                  name="email"
+                  autoComplete="email"
+                  type="email"
+                  required
+                  className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow sm:text-sm bg-white"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your mail"
+                />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Password</label>
-              <div className="mt-1">
-                <input type="password" required value={password} onChange={(e)=>setPassword(e.target.value)}
-                       className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" />
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  autoComplete="new-password"
+                  type="password"
+                  required
+                  className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow sm:text-sm bg-white"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Create a password"
+                />
               </div>
             </div>
 
-            <button type="submit" className="w-full flex justify-center py-2 px-4 shadow text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 transition">
-              Sign up
-            </button>
+            <div className="flex items-center mt-4">
+              <input
+                id="terms"
+                name="terms"
+                type="checkbox"
+                required
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded cursor-pointer"
+              />
+              <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
+                I agree with <span className="font-semibold text-primary-600">Terms & Conditions</span>
+              </label>
+            </div>
+
+            <div className="pt-4 flex gap-4">
+              <button
+                type="submit"
+                disabled={!agreed}
+                className="flex-1 flex justify-center py-3 px-4 border border-transparent rounded-full shadow-md text-sm font-bold text-white bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transform transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                Sign Up
+              </button>
+              <Link
+                to="/login"
+                className="flex-1 flex justify-center py-3 px-4 border shadow-sm text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 focus:outline-none border-gray-300 rounded-full transition-colors items-center"
+              >
+                Sign In
+              </Link>
+            </div>
           </form>
-          <div className="mt-6 text-center">
-            <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
-               Already have an account? Sign in
-            </Link>
-          </div>
         </div>
       </div>
     </div>

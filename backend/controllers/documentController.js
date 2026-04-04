@@ -1,4 +1,4 @@
-const { Document, User } = require('../models');
+const { Document, User, DocumentLog } = require('../models');
 
 const createDocument = async (req, res) => {
   const { title, workspaceId } = req.body;
@@ -44,4 +44,64 @@ const getDocumentById = async (req, res) => {
   }
 };
 
-module.exports = { createDocument, getWorkspaceDocuments, getDocumentById };
+const deleteDocument = async (req, res) => {
+  try {
+    const document = await Document.findByPk(req.params.id);
+    if (!document) return res.status(404).json({ message: 'Document not found' });
+    
+    await document.destroy();
+    res.json({ message: 'Document removed' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const updateDocument = async (req, res) => {
+  try {
+    const document = await Document.findByPk(req.params.id);
+    if (!document) return res.status(404).json({ message: 'Document not found' });
+    
+    let action = '';
+    const newTitle = req.body.title || document.title;
+    const newContent = req.body.content !== undefined ? req.body.content : document.content;
+    
+    if (newTitle !== document.title && newContent !== document.content) {
+       action = `Updated Title to "${newTitle}" and edited Content`;
+    } else if (newTitle !== document.title) {
+       action = `Changed Title to "${newTitle}"`;
+    } else if (newContent !== document.content) {
+       action = `Edited Document Content`;
+    }
+    
+    document.title = newTitle;
+    document.content = newContent;
+    await document.save();
+    
+    if (action) {
+       const user = await User.findByPk(req.user.id);
+       await DocumentLog.create({
+         documentId: document.id,
+         userName: user ? user.name : 'Unknown',
+         action
+       });
+    }
+    
+    res.json(document);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getDocumentLogs = async (req, res) => {
+  try {
+    const logs = await DocumentLog.findAll({
+      where: { documentId: req.params.id },
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { createDocument, getWorkspaceDocuments, getDocumentById, deleteDocument, updateDocument, getDocumentLogs };

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import { Link } from 'react-router-dom';
-import { Folder, Plus } from 'lucide-react';
+import { Folder, Plus, Trash2 } from 'lucide-react';
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
@@ -34,12 +34,25 @@ const Dashboard = () => {
     }
   };
 
+  const handleDeleteWorkspace = async (e, id) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this workspace? This action cannot be undone.')) {
+      try {
+        await api.delete(`/workspaces/${id}`);
+        setWorkspaces(workspaces.filter(ws => ws._id !== id));
+      } catch (err) {
+        alert(err.response?.data?.message || 'Error deleting workspace');
+      }
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-gray-500">Loading your workspaces...</div>;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Welcome, {user?.name.split(' ')[0]}</h1>
+        <h1 className="text-3xl font-bold text-gray-800">Welcome, {user?.name?.split(' ')[0] || 'User'}</h1>
         <button 
           onClick={handleCreateWorkspace}
           className="flex items-center space-x-2 bg-primary-600 text-white px-4 py-2 rounded-md shadow hover:bg-primary-700 transition"
@@ -64,7 +77,17 @@ const Dashboard = () => {
                   <div className="bg-primary-50 p-2 rounded-lg text-primary-600 group-hover:bg-primary-100 transition">
                     <Folder size={24} />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 truncate">{ws.name}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 truncate flex-1">{ws.name}</h3>
+                  
+                  {ws.ownerId === user?.id && (
+                    <button 
+                      onClick={(e) => handleDeleteWorkspace(e, ws._id)}
+                      className="text-gray-400 hover:text-red-500 transition px-2 py-1 z-10"
+                      title="Delete Workspace"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  )}
                 </div>
                 <p className="text-sm text-gray-500 line-clamp-2 min-h-[40px]">{ws.description}</p>
                 <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">

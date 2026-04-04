@@ -8,6 +8,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import WorkspaceView from './pages/WorkspaceView';
 import DocumentEditor from './pages/DocumentEditor';
+import Profile from './pages/Profile';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = React.useContext(AuthContext);
@@ -28,6 +29,7 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+                <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
                 <Route path="/workspace/:workspaceId" element={<PrivateRoute><WorkspaceView /></PrivateRoute>} />
                 <Route path="/document/:id" element={<PrivateRoute><DocumentEditor /></PrivateRoute>} />
               </Routes>

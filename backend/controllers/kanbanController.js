@@ -45,12 +45,15 @@ const createCard = async (req, res) => {
 
 const updateCardState = async (req, res) => {
   try {
-    const { listId, position } = req.body;
+    const { listId, position, title, description } = req.body;
     const card = await KanbanCard.findByPk(req.params.id);
     if (!card) return res.status(404).json({ message: 'Card not found' });
     
-    card.listId = listId;
-    card.position = position;
+    if (listId !== undefined) card.listId = listId;
+    if (position !== undefined) card.position = position;
+    if (title !== undefined) card.title = title;
+    if (description !== undefined) card.description = description;
+    
     await card.save();
     
     res.json({ ...card.toJSON(), _id: card.id, list: card.listId });
@@ -59,4 +62,30 @@ const updateCardState = async (req, res) => {
   }
 };
 
-module.exports = { getBoard, createList, createCard, updateCardState };
+const deleteCard = async (req, res) => {
+  try {
+    const card = await KanbanCard.findByPk(req.params.id);
+    if (!card) return res.status(404).json({ message: 'Card not found' });
+    await card.destroy();
+    res.json({ ...card.toJSON(), _id: card.id, list: card.listId });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const deleteList = async (req, res) => {
+  try {
+    const list = await KanbanList.findByPk(req.params.id);
+    if (!list) return res.status(404).json({ message: 'List not found' });
+    
+    // Safely cleanup all cards inside this list first
+    await KanbanCard.destroy({ where: { listId: list.id } });
+    await list.destroy();
+    
+    res.json({ message: 'List deleted' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { getBoard, createList, createCard, updateCardState, deleteCard, deleteList };

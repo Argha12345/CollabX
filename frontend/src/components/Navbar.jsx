@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { LogOut, User as UserIcon, Bell, Check } from 'lucide-react';
 import api from '../services/api';
@@ -22,14 +22,20 @@ const Navbar = () => {
     logout();
     navigate('/login');
   };
+  
+  const location = useLocation();
+  if (['/login', '/register', '/profile'].includes(location.pathname)) {
+    return null;
+  }
 
   return (
-    <nav className="bg-white shadow">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="bg-white shadow w-full">
+      <div className="w-full px-4 sm:px-6 lg:px-12">
         <div className="flex justify-between h-16">
           <div className="flex">
-            <Link to="/" className="flex-shrink-0 flex items-center">
-              <span className="text-2xl font-bold text-primary-600">CollabX</span>
+            <Link to="/" className="flex items-center space-x-2 text-xl font-bold text-primary-600">
+              <img src="/logo.png" alt="CollabX Logo" className="h-8 object-contain" />
+              <span className="hidden sm:block">CollabX</span>
             </Link>
           </div>
           <div className="flex items-center space-x-4">
@@ -79,16 +85,22 @@ const Navbar = () => {
                   )}
                 </div>
 
-                <div className="flex items-center space-x-2 text-gray-700">
-                  <UserIcon size={20} />
-                  <span>{user.name}</span>
-                </div>
+                <Link to="/profile" className="flex items-center space-x-2 text-gray-700 hover:text-primary-600 transition">
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt="Profile Avatar" className="w-8 h-8 rounded-full object-cover border border-gray-200 shadow-sm" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center border border-primary-200">
+                      <UserIcon size={16} />
+                    </div>
+                  )}
+                  <span className="font-medium">{user?.name}</span>
+                </Link>
                 <button
                   onClick={handleLogout}
-                  className="flex items-center space-x-1 text-gray-500 hover:text-red-600 transition-colors"
+                  className="flex items-center space-x-1 text-gray-500 hover:text-red-600 transition-colors bg-gray-100 px-3 py-1 rounded-md"
                 >
-                  <LogOut size={20} />
-                  <span>Logout</span>
+                  <LogOut size={16} />
+                  <span className="text-sm font-medium">Logout</span>
                 </button>
               </>
             ) : (

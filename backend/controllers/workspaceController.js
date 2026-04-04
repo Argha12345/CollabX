@@ -1,4 +1,5 @@
 const { Workspace, User, WorkspaceMember } = require('../models');
+const nodemailer = require('nodemailer');
 
 const createWorkspace = async (req, res) => {
   const { name, description } = req.body;
@@ -23,12 +24,23 @@ const createWorkspace = async (req, res) => {
 
 const getWorkspaces = async (req, res) => {
   try {
+    const myMemberships = await WorkspaceMember.findAll({
+      where: { userId: req.user.id },
+      attributes: ['workspaceId']
+    });
+    
+    if (myMemberships.length === 0) {
+      return res.json([]);
+    }
+
+    const workspaceIds = myMemberships.map(m => m.workspaceId);
+
     const workspaces = await Workspace.findAll({
+      where: { id: workspaceIds },
       include: [
         {
           model: WorkspaceMember,
           as: 'memberDetails',
-          where: { userId: req.user.id }
         }
       ]
     });
@@ -71,4 +83,72 @@ const getWorkspaceById = async (req, res) => {
   }
 };
 
-module.exports = { createWorkspace, getWorkspaces, getWorkspaceById };
+const deleteWorkspace = async (req, res) => {
+  try {
+    const workspace = await Workspace.findByPk(req.params.id);
+    if (!workspace) {
+      return res.status(404).json({ message: 'Workspace not found' });
+    }
+    
+    if (workspace.ownerId !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to delete this workspace' });
+    }
+
+    await workspace.destroy();
+    res.json({ message: 'Workspace removed' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const addMember = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const workspace = await Workspace.findByPk(req.params.id);
+    
+    if (!workspace) return res.status(404).json({ message: 'Workspace not found' });
+    if (workspace.ownerId !== req.user.id) return res.status(403).json({ message: 'Only workspace owners can add members' });
+    
+    const targetUser = await User.findOne({ where: { email } });
+    if (!targetUser) return res.status(404).json({ message: 'User with this email perfectly not found' });
+
+    const existingMember = await WorkspaceMember.findOne({
+      where: { workspaceId: workspace.id, userId: targetUser.id }
+    });
+
+    if (existingMember) return res.status(400).json({ message: 'User is already a member of this workspace' });
+
+    await WorkspaceMember.create({
+      workspaceId: workspace.id,
+      userId: targetUser.id,
+      role: 'member'
+    });
+
+    res.json({ message: 'Member added successfully' });
+    
+    // Dispatch Email Notification
+    try {
+      const transporter = nodemailer.createTransport({
+        service: process.env.EMAIL_SERVICE || 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        }
+      });
+      if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+         await transporter.sendMail({
+           from: `"CollabX Teams" <${process.env.EMAIL_USER}>`,
+           to: targetUser.email,
+           subject: `CollabX: You've been added to ${workspace.name}`,
+           html: `<h2>Welcome!</h2><p>You have just been added to the CollabX Workspace: <strong>${workspace.name}</strong>.</p><p>Log in to access documents and kanban boards!</p>`
+         });
+      }
+    } catch(err) {
+      console.error('Notification error:', err.message);
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { createWorkspace, getWorkspaces, getWorkspaceById, deleteWorkspace, addMember };

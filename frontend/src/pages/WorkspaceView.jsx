@@ -2,7 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { FileText, LayoutDashboard, Plus } from 'lucide-react';
+import { FileText, LayoutDashboard, Plus, UserPlus, Trash2 } from 'lucide-react';
 import KanbanBoard from '../components/KanbanBoard';
 
 const WorkspaceView = () => {
@@ -41,6 +41,31 @@ const WorkspaceView = () => {
     }
   };
 
+  const handleAddMember = async () => {
+    const email = window.prompt("Enter new member's email address:");
+    if (!email) return;
+    try {
+      await api.post(`/workspaces/${workspaceId}/members`, { email });
+      alert("Member added successfully! They can now see this workspace.");
+      setWorkspace({ ...workspace, members: [...workspace.members, { userId: 'new' }] }); // naive update
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error inviting member');
+    }
+  };
+
+  const handleDeleteDocument = async (e, docId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.confirm('Are you really sure you wanted to delete this document?')) {
+      try {
+        await api.delete(`/documents/${docId}`);
+        setDocuments(documents.filter(d => d._id !== docId));
+      } catch (err) {
+        alert('Error deleting document');
+      }
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-gray-500">Loading workspace details...</div>;
   if (!workspace) return <div className="p-8 text-center text-red-500">Workspace not found</div>;
 
@@ -48,9 +73,16 @@ const WorkspaceView = () => {
     <div className="flex h-[calc(100vh-4rem)]">
       {/* Sidebar */}
       <div className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm">
-        <div className="p-4 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-800 truncate">{workspace.name}</h2>
+        <div className="p-4 border-b border-gray-100 relative">
+          <h2 className="text-xl font-bold text-gray-800 truncate pr-8">{workspace.name}</h2>
           <p className="text-xs text-gray-500 mt-1 capitalize">{workspace.members.length} members</p>
+          <button 
+            onClick={handleAddMember}
+            className="absolute top-4 right-4 text-gray-400 hover:text-primary-600 transition"
+            title="Invite Member"
+          >
+            <UserPlus size={18} />
+          </button>
         </div>
         <nav className="flex-1 p-4 space-y-2">
           <button 
@@ -98,7 +130,15 @@ const WorkspaceView = () => {
                       <div className="bg-primary-50 p-2 rounded text-primary-600">
                         <FileText size={20} />
                       </div>
-                      <h4 className="font-semibold text-gray-800 line-clamp-2 leading-tight group-hover:text-primary-600 transition truncate">{doc.title}</h4>
+                      <h4 className="font-semibold text-gray-800 line-clamp-2 leading-tight group-hover:text-primary-600 transition truncate flex-1">{doc.title}</h4>
+                      
+                      <button 
+                        onClick={(e) => handleDeleteDocument(e, doc._id)}
+                        className="text-gray-400 hover:text-red-500 transition px-2 py-1 opacity-0 group-hover:opacity-100 relative z-20"
+                        title="Delete Document"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                     <div className="mt-auto pt-3 border-t border-gray-100 flex justify-between items-center text-xs text-gray-400">
                       <span>{new Date(doc.createdAt).toLocaleDateString()}</span>

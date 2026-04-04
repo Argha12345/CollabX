@@ -24,6 +24,14 @@ const User = sequelize.define('User', {
   avatar: {
     type: DataTypes.STRING,
     defaultValue: '',
+  },
+  loginOtp: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  otpExpiresAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
   }
 }, {
   hooks: {

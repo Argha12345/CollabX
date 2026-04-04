@@ -10,6 +10,7 @@ const documentRoutes = require('../routes/documentRoutes');
 const kanbanRoutes = require('../routes/kanbanRoutes');
 const aiRoutes = require('../routes/aiRoutes');
 const notificationRoutes = require('../routes/notificationRoutes');
+const userRoutes = require('../routes/userRoutes');
 
 // Setup MongoDB/SQLite models mappings before connecting
 require('../models');
@@ -19,7 +20,9 @@ connectDB();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -38,8 +41,8 @@ io.on('connection', (socket) => {
     console.log(`Socket ${socket.id} joined document ${documentId}`);
   });
 
-  socket.on('send-changes', (documentId, delta) => {
-    socket.to(documentId).emit('receive-changes', delta);
+  socket.on('send-changes', (documentId, delta, userName) => {
+    socket.to(documentId).emit('receive-changes', delta, userName);
   });
   
   socket.on('join-workspace', (workspaceId) => {
@@ -66,6 +69,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/kanban', kanbanRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/users', userRoutes);
 
 const PORT = process.env.PORT || 5000;
 
