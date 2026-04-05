@@ -1,4 +1,4 @@
-const { Workspace, User, WorkspaceMember } = require('../models');
+const { Workspace, User, WorkspaceMember, Notification } = require('../models');
 const nodemailer = require('nodemailer');
 
 const createWorkspace = async (req, res) => {
@@ -123,6 +123,28 @@ const addMember = async (req, res) => {
       userId: targetUser.id,
       role: 'member'
     });
+
+    // Create In-App Notification
+    try {
+      await Notification.create({
+        userId: targetUser.id,
+        message: `You have been added to the workspace: ${workspace.name}`,
+        type: 'workspace_invite',
+        link: `/workspace/${workspace.id}`,
+        read: false
+      });
+      const io = req.app.get('io');
+      const userSockets = req.app.get('userSockets');
+      const socketId = userSockets.get(targetUser.id);
+      if (io && socketId) {
+        io.to(socketId).emit('new-notification', {
+           message: `You have been added to the workspace: ${workspace.name}`,
+           link: `/workspace/${workspace.id}`
+        });
+      }
+    } catch(e) {
+      console.error('Notification record error:', e.message);
+    }
 
     res.json({ message: 'Member added successfully' });
     

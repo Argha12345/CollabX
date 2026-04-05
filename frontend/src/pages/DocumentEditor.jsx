@@ -9,7 +9,8 @@ import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
 import { Extension } from '@tiptap/core';
-import { ArrowLeft, Sparkles, Bold, Italic, Underline as UnderlineIcon, Highlighter, Save, History } from 'lucide-react';
+import { ArrowLeft, Sparkles, Bold, Italic, Underline as UnderlineIcon, Highlighter, Save, History, MessageSquare, PlusCircle } from 'lucide-react';
+import PresenceAvatars from '../components/PresenceAvatars';
 
 const FontSize = Extension.create({
   name: 'fontSize',
@@ -110,6 +111,16 @@ const EditorToolbar = ({ editor, onSave, isSaving }) => {
         <span className="text-2xl">A</span>
       </button>
 
+      <div className="w-px h-6 bg-gray-300 mx-2"></div>
+
+      <button
+        onClick={() => editor.commands.handleAddComment?.() || window.dispatchEvent(new CustomEvent('collabx:add-comment'))}
+        className="p-2 rounded hover:bg-primary-50 text-primary-600 border border-transparent hover:border-primary-200 transition-colors"
+        title="Add Comment"
+      >
+        <MessageSquare size={18} />
+      </button>
+
       <div className="flex-1"></div>
       
       <button
@@ -134,9 +145,14 @@ const DocumentEditor = () => {
   const [aiSuggestion, setAiSuggestion] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('comments');
   
-  const [activeTab, setActiveTab] = useState('ai');
   const [auditLogs, setAuditLogs] = useState([]);
+  const [presenceUsers, setPresenceUsers] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [showCommentInput, setShowCommentInput] = useState(false);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [currentSelection, setCurrentSelection] = useState(null);
   const [typingUser, setTypingUser] = useState(null);
   const typingTimeoutRef = useRef(null);
 
@@ -147,6 +163,13 @@ const DocumentEditor = () => {
     } catch(err) {
       setAuditLogs([]);
     }
+  };
+
+  const fetchComments = async () => {
+    try {
+      const { data } = await api.get(`/comments/document/${id}`);
+      setComments(data);
+    } catch(err) {}
   };
 
   const editor = useEditor({
@@ -203,9 +226,10 @@ const DocumentEditor = () => {
     };
     fetchDoc();
     fetchLogs();
+    fetchComments();
 
     if (socket) {
-      socket.emit('join-document', id);
+      socket.emit('join-document', { documentId: id, user: { id: user?.id, name: user?.name, email: user?.email, avatar: user?.avatar } });
       
       const receiveHandler = (html, userName) => {
         if (userName && userName !== user?.name) {
@@ -223,8 +247,22 @@ const DocumentEditor = () => {
         }
       };
 
+      const presenceHandler = (users) => {
+        setPresenceUsers(users);
+      };
+
+      const commentHandler = (comment) => {
+        setComments(prev => [...prev, comment]);
+      };
+
       socket.on('receive-changes', receiveHandler);
-      return () => socket.off('receive-changes', receiveHandler);
+      socket.on('presence-update', presenceHandler);
+      socket.on('comment-added', commentHandler);
+      return () => {
+        socket.off('receive-changes', receiveHandler);
+        socket.off('presence-update', presenceHandler);
+        socket.off('comment-added', commentHandler);
+      };
     }
   }, [id, socket, editor]);
 
@@ -258,12 +296,40 @@ const DocumentEditor = () => {
     }
   };
 
-  const insertSuggestion = () => {
-    if (editor && aiSuggestion) {
-      editor.chain().focus().insertContent(` ${aiSuggestion} `).run();
-      setAiSuggestion('');
+  const handleAddComment = () => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    if (from === to) {
+      alert("Please highlight some text first to comment on it.");
+      return;
     }
+    const text = editor.state.doc.textBetween(from, to, ' ');
+    setCurrentSelection({ from, to, text });
+    setShowCommentInput(true);
   };
+
+  const submitComment = async () => {
+    if (!newCommentText.trim()) return;
+    try {
+      const { data } = await api.post('/comments', {
+        content: newCommentText,
+        documentId: id,
+        selectionStart: currentSelection.from,
+        selectionEnd: currentSelection.to,
+        quotedText: currentSelection.text
+      });
+      setComments([...comments, data]);
+      setNewCommentText('');
+      setShowCommentInput(false);
+      socket.emit('new-comment', { documentId: id, comment: data });
+    } catch (err) {}
+  };
+
+  useEffect(() => {
+    const handleCommentEvent = () => handleAddComment();
+    window.addEventListener('collabx:add-comment', handleCommentEvent);
+    return () => window.removeEventListener('collabx:add-comment', handleCommentEvent);
+  }, [editor, comments, currentSelection]);
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading document...</div>;
   if (!document) return <div className="p-8 text-center text-red-500">Document not found</div>;
@@ -281,14 +347,18 @@ const DocumentEditor = () => {
             placeholder="Document Title"
           />
         </div>
-        <div className="flex items-center space-x-4">
-           {socket?.connected ? (
-             <span className="text-xs text-green-600 bg-green-50 px-3 py-1 rounded-full font-medium border border-green-200 hover:bg-green-100 transition-colors cursor-default">
-               Live Synced
-             </span>
-           ) : (
-             <span className="text-xs text-red-600 bg-red-50 px-3 py-1 rounded-full font-medium border border-red-200">Disconnected</span>
-           )}
+        <div className="flex items-center space-x-6">
+           <PresenceAvatars users={presenceUsers} />
+           <div className="h-6 w-px bg-gray-200"></div>
+           <div className="flex items-center space-x-3">
+             {socket?.connected ? (
+               <span className="text-xs text-green-600 bg-green-50 px-3 py-1 rounded-full font-medium border border-green-200 hover:bg-green-100 transition-colors cursor-default">
+                 Live Synced
+               </span>
+             ) : (
+               <span className="text-xs text-red-600 bg-red-50 px-3 py-1 rounded-full font-medium border border-red-200">Disconnected</span>
+             )}
+           </div>
         </div>
       </div>
 
@@ -316,22 +386,82 @@ const DocumentEditor = () => {
         {/* Sidebar */}
         <div className="w-80 bg-white border-l border-gray-200 flex flex-col shadow-sm">
           <div className="flex border-b border-gray-100 bg-gray-50/50">
-             <button 
-               className={`flex-1 py-3 text-sm flex justify-center items-center space-x-2 transition ${activeTab === 'ai' ? 'font-bold text-primary-600 border-b-2 border-primary-600 bg-white' : 'font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'}`}
-               onClick={() => setActiveTab('ai')}
-             >
-               <Sparkles size={16} /> <span>AI Assistant</span>
-             </button>
-             <button 
-               className={`flex-1 py-3 text-sm flex justify-center items-center space-x-2 transition ${activeTab === 'history' ? 'font-bold text-primary-600 border-b-2 border-primary-600 bg-white' : 'font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'}`}
-               onClick={() => setActiveTab('history')}
-             >
-               <History size={16} /> <span>Activity</span>
-             </button>
+            <button 
+              className={`flex-1 py-3 text-sm flex justify-center items-center space-x-2 transition ${activeTab === 'comments' ? 'font-bold text-primary-600 border-b-2 border-primary-600 bg-white' : 'font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'}`}
+              onClick={() => setActiveTab('comments')}
+            >
+              <MessageSquare size={16} /> <span>Comments</span>
+            </button>
+            <button 
+              className={`flex-1 py-3 text-sm flex justify-center items-center space-x-2 transition ${activeTab === 'ai' ? 'font-bold text-primary-600 border-b-2 border-primary-600 bg-white' : 'font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'}`}
+              onClick={() => setActiveTab('ai')}
+            >
+              <Sparkles size={16} /> <span>AI Assistant</span>
+            </button>
+            <button 
+              className={`flex-1 py-3 text-sm flex justify-center items-center space-x-2 transition ${activeTab === 'history' ? 'font-bold text-primary-600 border-b-2 border-primary-600 bg-white' : 'font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'}`}
+              onClick={() => setActiveTab('history')}
+            >
+              <History size={16} /> <span>Activity</span>
+            </button>
           </div>
           
           <div className="flex-1 overflow-y-auto">
-            {activeTab === 'ai' ? (
+            {activeTab === 'comments' ? (
+              <div className="flex flex-col h-full animate-in fade-in duration-200">
+                <div className="p-5 border-b border-gray-50 flex justify-between items-center">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Discussion</h4>
+                  <button onClick={handleAddComment} className="text-primary-600 hover:text-primary-700 text-xs font-bold flex items-center gap-1">
+                    <PlusCircle size={14} /> New
+                  </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {showCommentInput && (
+                    <div className="bg-primary-50 p-4 rounded-xl border border-primary-100 shadow-sm animate-in zoom-in-95 duration-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MessageSquare size={14} className="text-primary-500" />
+                        <span className="text-[10px] font-bold text-primary-600 uppercase">New Comment on:</span>
+                      </div>
+                      <p className="text-[11px] text-gray-500 italic mb-3 line-clamp-2 border-l-2 border-primary-200 pl-2">
+                        "{currentSelection?.text}"
+                      </p>
+                      <textarea 
+                        autoFocus
+                        value={newCommentText}
+                        onChange={(e) => setNewCommentText(e.target.value)}
+                        placeholder="Write a comment..."
+                        className="w-full p-3 text-sm bg-white border border-primary-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none h-24 resize-none transition"
+                      />
+                      <div className="flex justify-end gap-2 mt-3">
+                        <button onClick={() => setShowCommentInput(false)} className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100 rounded-md transition">Cancel</button>
+                        <button onClick={submitComment} className="px-4 py-1.5 text-xs font-bold bg-primary-600 text-white rounded-md hover:bg-primary-700 transition shadow-md shadow-primary-100">Post</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {comments.length === 0 && !showCommentInput ? (
+                    <div className="text-center py-20 opacity-40">
+                      <MessageSquare size={48} className="mx-auto text-gray-300 mb-2" />
+                      <p className="text-sm font-medium">No comments yet</p>
+                    </div>
+                  ) : (
+                    [...comments].reverse().map((comment) => (
+                      <div key={comment._id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-sm text-gray-800">{comment.userName}</span>
+                          <span className="text-[10px] text-gray-400">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <p className="text-[11px] text-gray-500 italic mb-3 border-l-2 border-gray-100 pl-2 line-clamp-1">
+                          "{comment.quotedText}"
+                        </p>
+                        <p className="text-sm text-gray-700 leading-relaxed bg-gray-50/50 p-2 rounded-lg">{comment.content}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : activeTab === 'ai' ? (
               <div className="p-5 flex flex-col space-y-4 animate-in fade-in zoom-in-95 duration-200">
                 <p className="text-sm text-gray-500 leading-relaxed">Highlight text in the document and ask AI to expand, or just ask it to continue drafting.</p>
                 <button 

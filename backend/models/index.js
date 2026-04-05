@@ -6,6 +6,7 @@ const KanbanList = require('./KanbanList');
 const KanbanCard = require('./KanbanCard');
 const Notification = require('./Notification');
 const DocumentLog = require('./DocumentLog');
+const DocumentComment = require('./DocumentComment');
 const { sequelize } = require('../utils/db');
 
 // Setup Associations
@@ -30,6 +31,12 @@ Document.belongsTo(User, { foreignKey: 'createdById', as: 'creator' });
 Document.hasMany(DocumentLog, { foreignKey: 'documentId', onDelete: 'CASCADE' });
 DocumentLog.belongsTo(Document, { foreignKey: 'documentId' });
 
+Document.hasMany(DocumentComment, { foreignKey: 'documentId', onDelete: 'CASCADE' });
+DocumentComment.belongsTo(Document, { foreignKey: 'documentId' });
+
+User.hasMany(DocumentComment, { foreignKey: 'userId' });
+DocumentComment.belongsTo(User, { foreignKey: 'userId', as: 'author' });
+
 Workspace.hasMany(KanbanList, { foreignKey: 'workspaceId', onDelete: 'CASCADE' });
 KanbanList.belongsTo(Workspace, { foreignKey: 'workspaceId' });
 
@@ -48,5 +55,6 @@ module.exports = {
   KanbanCard,
   Notification,
   DocumentLog,
+  DocumentComment,
   sequelize
 };
